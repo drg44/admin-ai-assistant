@@ -1,5 +1,6 @@
 // admin-ai-assistant.js
 // Combined CSS injector and AI Draft Assistant logic
+console.log("✅ admin-ai-assistant.js loaded");
 (function() {
   // Only run on the published coaching site
   if (window.location.host !== 'jamesroy.coachlab.io') return;
