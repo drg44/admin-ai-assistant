@@ -1,7 +1,7 @@
 // admin-ai-assistant.js
-// Load both CSS and AI Draft Assistant UI on jamesroy.coachlab.io
+// Combined CSS injector and AI Draft Assistant logic
 (function() {
-  // Only run on your specified host
+  // Only run on jamesroy.coachlab.io
   if (window.location.host !== 'jamesroy.coachlab.io') return;
 
   // Inject CSS
@@ -51,7 +51,7 @@
   `;
   document.head.appendChild(style);
 
-  // Build the AI Draft Assistant panel
+  // Build panel HTML
   const panel = document.createElement('div');
   panel.id = 'ai-draft-panel';
   panel.innerHTML = `
@@ -86,7 +86,7 @@
   ];
   let currentPromptIndex = -1;
 
-  // Render prompt list
+  // Render prompt items
   function renderPromptItems(tab = 'prebuilt') {
     const container = document.getElementById('promptItems');
     container.innerHTML = '';
@@ -106,7 +106,7 @@
     });
   }
 
-  // Tab click handlers
+  // Tab handlers
   document.getElementById('tab-prebuilt').onclick = () => {
     document.getElementById('tab-prebuilt').classList.add('active');
     document.getElementById('tab-custom').classList.remove('active');
@@ -151,8 +151,10 @@
     renderPromptItems('custom');
   };
 
-  // Generate draft
+  // Generate draft with content-type check
   window.generateDraft = async () => {
+    const output = document.getElementById('draftOutput');
+    output.textContent = '⏳ Generating…';
     let prompt = document.getElementById('customPrompt').value;
     const sel = window.getSelection().toString();
     if (document.getElementById('useSelectedText').checked && sel) {
@@ -161,37 +163,28 @@
       const ctx = document.body.innerText.slice(0, 4000);
       prompt += `\n\nHere is the full page context:\n${ctx}`;
     }
-    const response = await fetch(PROXY_URL, { /* … */ });
-    const contentType = response.headers.get('content-type') || '';
-    
-    if (contentType.includes('application/json')) {
-      // safe to parse JSON
-      const data = await response.json();
-      output.textContent = data.result ?? data.error ?? 'No result.';
-    } 
-    else {
-  // got HTML (doctype) or other – dump raw text for debugging
-    const text = await response.text();
-    console.error('Expected JSON but got:', text);
-    output.textContent = 'Error: unexpected response (see console)';
-    }
-    const output = document.getElementById('draftOutput');
-    output.textContent = '⏳ Generating…';
-
     try {
-      const res = await fetch('/api/generate', {
+      const res = await fetch('https://24612ab5-abc3-4124-be0a-738610000fe5-00-3acn4r832x9a7.worf.replit.dev/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt })
       });
-      const data = await res.json();
-      output.textContent = data.result || data.error || 'No response.';
+      const contentType = res.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        const data = await res.json();
+        output.textContent = data.result || data.error || 'No result.';
+      } else {
+        const text = await res.text();
+        console.error('Expected JSON but got:', text);
+        output.textContent = 'Error: unexpected response (see console)';
+      }
     } catch (err) {
+      console.error('Network error:', err);
       output.textContent = 'Error: ' + err.message;
     }
   };
 
-  // Copy and replace functions
+  // Copy & replace functions
   window.copyDraft = () => {
     navigator.clipboard.writeText(
       document.getElementById('draftOutput').textContent
