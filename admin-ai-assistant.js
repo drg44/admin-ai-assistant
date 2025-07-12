@@ -1,29 +1,20 @@
 // admin-ai-assistant.js
 // Combined CSS injector and AI Draft Assistant logic
 (function() {
-  // Only run on jamesroy.coachlab.io
+  // Only run on the published coaching site
   if (window.location.host !== 'jamesroy.coachlab.io') return;
 
-  // Inject CSS
+  // 1) Inject our CSS
   const style = document.createElement('style');
   style.innerHTML = `
     #ai-draft-panel {
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      width: 360px;
+      position: fixed; bottom: 20px; right: 20px; width: 360px;
       max-height: 90vh;
-      display: flex;
-      flex-direction: column;
-      resize: vertical;
-      overflow: hidden;
-      background: white;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      padding: 16px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-      z-index: 99999;
-      font-family: "Inter", sans-serif;
+      display: flex; flex-direction: column; resize: vertical;
+      overflow: hidden; background: white;
+      border: 1px solid #ccc; border-radius: 6px;
+      padding: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      z-index: 99999; font-family: "Inter",sans-serif;
     }
     #ai-tabs { display: flex; gap: 10px; margin-bottom: 10px; }
     .ai-tab { cursor: pointer; padding: 4px 8px; border-radius: 6px; background: #eee; }
@@ -33,12 +24,9 @@
     textarea, input[type="text"] { width: 100%; margin-bottom: 10px; }
     textarea { height: 60px; }
     #draftOutput {
-      white-space: pre-wrap;
-      border-top: 1px solid #ddd;
-      padding-top: 10px;
-      margin-top: 10px;
-      flex-grow: 1;
-      overflow-y: auto;
+      white-space: pre-wrap; border-top: 1px solid #ddd;
+      padding-top: 10px; margin-top: 10px;
+      flex-grow: 1; overflow-y: auto;
     }
     .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
     .btn-row button {
@@ -51,7 +39,7 @@
   `;
   document.head.appendChild(style);
 
-  // Build panel HTML
+  // 2) Build the panel
   const panel = document.createElement('div');
   panel.id = 'ai-draft-panel';
   panel.innerHTML = `
@@ -78,7 +66,7 @@
   `;
   document.body.appendChild(panel);
 
-  // Prebuilt prompts
+  // 3) Prebuilt prompts
   const prebuilt = [
     { name: 'Referral Follow-up', text: 'Write a follow-up email asking for a referral from a happy client.' },
     { name: 'Talk Title Generator', text: 'Generate 5 talk titles for a leadership keynote.' },
@@ -86,19 +74,18 @@
   ];
   let currentPromptIndex = -1;
 
-  // Render prompt items
   function renderPromptItems(tab = 'prebuilt') {
     const container = document.getElementById('promptItems');
     container.innerHTML = '';
     const prompts = tab === 'prebuilt'
       ? prebuilt
-      : JSON.parse(localStorage.getItem('customPrompts') || '[]');
+      : JSON.parse(localStorage.getItem('customPrompts')||'[]');
     prompts.forEach((p, idx) => {
       const div = document.createElement('div');
       div.className = 'prompt-item';
       div.textContent = p.name;
       div.onclick = () => {
-        document.getElementById('promptName').value = p.name;
+        document.getElementById('promptName').value   = p.name;
         document.getElementById('customPrompt').value = p.text;
         currentPromptIndex = idx;
       };
@@ -106,7 +93,7 @@
     });
   }
 
-  // Tab handlers
+  // Tab click handlers
   document.getElementById('tab-prebuilt').onclick = () => {
     document.getElementById('tab-prebuilt').classList.add('active');
     document.getElementById('tab-custom').classList.remove('active');
@@ -119,7 +106,7 @@
   };
   renderPromptItems();
 
-  // CRUD functions
+  // CRUD for custom prompts
   window.newPrompt = () => {
     document.getElementById('promptName').value = '';
     document.getElementById('customPrompt').value = '';
@@ -128,63 +115,69 @@
   window.savePrompt = () => {
     const name = document.getElementById('promptName').value.trim();
     const text = document.getElementById('customPrompt').value.trim();
-    if (!name || !text) return alert('Both name and text required.');
-    const saved = JSON.parse(localStorage.getItem('customPrompts') || '[]');
-    if (currentPromptIndex >= 0) {
-      saved[currentPromptIndex] = { name, text };
-    } else {
-      saved.push({ name, text });
-      currentPromptIndex = saved.length - 1;
+    if (!name||!text) return alert('Both name and text required.');
+    const arr = JSON.parse(localStorage.getItem('customPrompts')||'[]');
+    if (currentPromptIndex >= 0) arr[currentPromptIndex] = {name,text};
+    else {
+      arr.push({name,text});
+      currentPromptIndex = arr.length-1;
     }
-    localStorage.setItem('customPrompts', JSON.stringify(saved));
+    localStorage.setItem('customPrompts', JSON.stringify(arr));
     renderPromptItems('custom');
-    const status = document.getElementById('saveStatus');
-    status.style.display = 'block';
-    setTimeout(() => status.style.display = 'none', 1500);
+    document.getElementById('saveStatus').style.display = 'block';
+    setTimeout(()=>document.getElementById('saveStatus').style.display='none',1500);
   };
   window.deletePrompt = () => {
-    if (currentPromptIndex < 0) return;
-    const saved = JSON.parse(localStorage.getItem('customPrompts') || '[]');
-    saved.splice(currentPromptIndex, 1);
-    localStorage.setItem('customPrompts', JSON.stringify(saved));
-    newPrompt();
-    renderPromptItems('custom');
+    if (currentPromptIndex<0) return;
+    const arr = JSON.parse(localStorage.getItem('customPrompts')||'[]');
+    arr.splice(currentPromptIndex,1);
+    localStorage.setItem('customPrompts', JSON.stringify(arr));
+    newPrompt(); renderPromptItems('custom');
   };
 
-  // Generate draft with content-type check
+  // 4) Generate draft with Content-Type check
   window.generateDraft = async () => {
     const output = document.getElementById('draftOutput');
     output.textContent = '⏳ Generating…';
+    // build prompt
     let prompt = document.getElementById('customPrompt').value;
-    const sel = window.getSelection().toString();
+    const sel       = window.getSelection().toString();
     if (document.getElementById('useSelectedText').checked && sel) {
       prompt += `\n\nEdit this: ${sel}`;
     } else if (document.getElementById('usePageContext').checked) {
-      const ctx = document.body.innerText.slice(0, 4000);
+      const ctx = document.body.innerText.slice(0,4000);
       prompt += `\n\nHere is the full page context:\n${ctx}`;
     }
+
     try {
-      const res = await fetch('https://24612ab5-abc3-4124-be0a-738610000fe5-00-3acn4r832x9a7.worf.replit.dev/api/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt })
-      });
-      const contentType = res.headers.get('content-type') || '';
-      if (contentType.includes('application/json')) {
+      const res = await fetch(
+        // ← your real proxy endpoint here (must be HTTPS & CORS-enabled)
+        'https://24612ab5-abc3-4124-be0a-738610000fe5-00-3acn4r832x9a7.worf.replit.dev/api/generate',
+        {
+          method: 'POST',
+          headers: { 'Content-Type':'application/json' },
+          body: JSON.stringify({ prompt })
+        }
+      );
+
+      // inspect the response
+      const ct = res.headers.get('content-type')||'';
+      if (ct.includes('application/json')) {
         const data = await res.json();
-        output.textContent = data.result || data.error || 'No result.';
+        output.textContent = data.result||data.error||'No result.';
       } else {
         const text = await res.text();
         console.error('Expected JSON but got:', text);
         output.textContent = 'Error: unexpected response (see console)';
       }
+
     } catch (err) {
       console.error('Network error:', err);
-      output.textContent = 'Error: ' + err.message;
+      output.textContent = 'Error: '+err.message;
     }
   };
 
-  // Copy & replace functions
+  // copy & replace
   window.copyDraft = () => {
     navigator.clipboard.writeText(
       document.getElementById('draftOutput').textContent
@@ -194,8 +187,9 @@
     const sel = window.getSelection();
     if (!sel.rangeCount) return;
     const range = sel.getRangeAt(0);
-    const text = document.getElementById('draftOutput').textContent;
     range.deleteContents();
-    range.insertNode(document.createTextNode(text));
+    range.insertNode(document.createTextNode(
+      document.getElementById('draftOutput').textContent
+    ));
   };
 })();
