@@ -1,7 +1,7 @@
 // admin-ai-assistant.js
-// Load both CSS and AI Draft Assistant UI on jamesroy.coachlab.io
+// Combined CSS injector and AI Draft Assistant logic
 (function() {
-  // Only run on your specified host
+  // Only run on jamesroy.coachlab.io
   if (window.location.host !== 'jamesroy.coachlab.io') return;
 
   // Inject CSS
@@ -51,7 +51,7 @@
   `;
   document.head.appendChild(style);
 
-  // Build the AI Draft Assistant panel
+  // Build panel HTML
   const panel = document.createElement('div');
   panel.id = 'ai-draft-panel';
   panel.innerHTML = `
@@ -86,7 +86,7 @@
   ];
   let currentPromptIndex = -1;
 
-  // Render prompt list
+  // Render prompt items
   function renderPromptItems(tab = 'prebuilt') {
     const container = document.getElementById('promptItems');
     container.innerHTML = '';
@@ -106,7 +106,7 @@
     });
   }
 
-  // Tab click handlers
+  // Tab handlers
   document.getElementById('tab-prebuilt').onclick = () => {
     document.getElementById('tab-prebuilt').classList.add('active');
     document.getElementById('tab-custom').classList.remove('active');
@@ -129,10 +129,9 @@
     const name = document.getElementById('promptName').value.trim();
     const text = document.getElementById('customPrompt').value.trim();
     if (!name || !text) return alert('Both name and text required.');
-    const saved = JSON.parse(localStorage.getItem('customPrompts') || '[]');
-    if (currentPromptIndex >= 0) {
-      saved[currentPromptIndex] = { name, text };
-    } else {
+    const saved = JSON.parse(localStorage.getItem('customPrompts')||'[]');
+    if (currentPromptIndex >= 0) saved[currentPromptIndex] = { name, text };
+    else {
       saved.push({ name, text });
       currentPromptIndex = saved.length - 1;
     }
@@ -144,8 +143,8 @@
   };
   window.deletePrompt = () => {
     if (currentPromptIndex < 0) return;
-    const saved = JSON.parse(localStorage.getItem('customPrompts') || '[]');
-    saved.splice(currentPromptIndex, 1);
+    const saved = JSON.parse(localStorage.getItem('customPrompts')||'[]');
+    saved.splice(currentPromptIndex,1);
     localStorage.setItem('customPrompts', JSON.stringify(saved));
     newPrompt();
     renderPromptItems('custom');
@@ -154,41 +153,52 @@
   // Generate draft
   window.generateDraft = async () => {
     let prompt = document.getElementById('customPrompt').value;
-    const sel = window.getSelection().toString();
-    if (document.getElementById('useSelectedText').checked && sel) {
-      prompt += `\n\nEdit this: ${sel}`;
-    } else if (document.getElementById('usePageContext').checked) {
-      const ctx = document.body.innerText.slice(0, 4000);
-      prompt += `\n\nHere is the full page context:\n${ctx}`;
+    const useSelected = document.getElementById('useSelectedText').checked;
+    const useContext  = document.getElementById('usePageContext').checked;
+    const selected    = window.getSelection().toString();
+    if (useSelected && selected) {
+      prompt += `\n\nEdit this: ${selected}`;
+    } else if (useContext) {
+      const context = document.body.innerText.slice(0,4000);
+      prompt += `\n\nHere is the full page context:\n${context}`;
     }
     const output = document.getElementById('draftOutput');
     output.textContent = '⏳ Generating…';
-
     try {
-      const res = await fetch('/api/generate', {
+      const response = await fetch('https://24612ab5-abc3-4124-be0a-738610000fe5-00-3acn4r832x9a7.worf.replit.dev/api/generate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type':'application/json' },
         body: JSON.stringify({ prompt })
       });
-      const data = await res.json();
-      output.textContent = data.result || data.error || 'No response.';
-    } catch (err) {
-      output.textContent = 'Error: ' + err.message;
+      const text = await response.text();
+      console.log('generateDraft raw response:', text);
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (parseErr) {
+        console.error('Failed to parse JSON:', parseErr);
+        output.textContent = 'Error: unexpected response (see console)';
+        return;
+      }
+      output.textContent = data.result || data.error || 'No result.';
+    } catch (networkErr) {
+      console.error('Network error:', networkErr);
+      output.textContent = 'Error: ' + networkErr.message;
     }
   };
 
-  // Copy and replace functions
+  // Copy & replace
   window.copyDraft = () => {
-    navigator.clipboard.writeText(
-      document.getElementById('draftOutput').textContent
-    );
+    const text = document.getElementById('draftOutput').textContent;
+    navigator.clipboard.writeText(text);
   };
   window.replaceSelectedText = () => {
-    const sel = window.getSelection();
-    if (!sel.rangeCount) return;
-    const range = sel.getRangeAt(0);
-    const text = document.getElementById('draftOutput').textContent;
+    const selection = window.getSelection();
+    if (!selection.rangeCount) return;
+    const range = selection.getRangeAt(0);
+    const draft = document.getElementById('draftOutput').textContent;
     range.deleteContents();
-    range.insertNode(document.createTextNode(text));
+    range.insertNode(document.createTextNode(draft));
   };
 })();
+
